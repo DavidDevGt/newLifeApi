@@ -1,0 +1,47 @@
+CREATE DATABASE IF NOT EXISTS newlifedb 
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE newlifedb;
+
+CREATE TABLE IF NOT EXISTS categories (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    type ENUM('expense', 'income') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date DATE,
+    priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
+    status ENUM('pending', 'in_progress', 'completed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS incomes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    category_id INT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    amount DECIMAL(10,2) NOT NULL,
+    transaction_date DATE DEFAULT (CURRENT_DATE),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    category_id INT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    amount DECIMAL(10,2) NOT NULL,
+    transaction_date DATE DEFAULT (CURRENT_DATE),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+);
