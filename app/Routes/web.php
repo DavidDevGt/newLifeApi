@@ -3,6 +3,7 @@
 use App\Core\Router;
 use App\Handlers\JsonHandler;
 use App\Exceptions\Handler;
+use App\Middleware\ApiMiddleware;
 
 /**
  * Envía la respuesta en formato JSON con información adicional
@@ -11,8 +12,9 @@ use App\Exceptions\Handler;
  * @param int   $status  Código de estado HTTP
  * @param bool  $error   Indica si es una respuesta de error
  */
-function sendResponse($data, $status = 200, $error = false) {
-    date_default_timezone_set('America/Guatemala'); // TODO: implementar esto dinamicamente para varios paises
+function sendResponse($data, $status = 200, $error = false)
+{
+    date_default_timezone_set('America/Guatemala'); // TODO: implementar esto dinámicamente para varios países
 
     $response = [
         'status'    => $status,
@@ -32,7 +34,8 @@ function sendResponse($data, $status = 200, $error = false) {
  *
  * @return array
  */
-function getRequestData() {
+function getRequestData()
+{
     $jsonData = file_get_contents("php://input");
     return json_decode($jsonData, true) ?? [];
 }
@@ -49,6 +52,7 @@ $apiMetadata = [
     ]
 ];
 
+// Ruta de metadata (podrías excluirla del chequeo de API key si lo deseas)
 $router->get('/', function () use ($apiMetadata) {
     sendResponse($apiMetadata);
 });
@@ -62,7 +66,7 @@ $router->get('/tasks', function () {
 $router->post('/tasks', function () {
     $taskModel = new \App\Models\Task();
     $data = getRequestData();
-    
+
     if ($taskModel->create($data)) {
         sendResponse(["message" => "Tarea creada"], 201);
     } else {
@@ -73,7 +77,7 @@ $router->post('/tasks', function () {
 $router->get('/tasks/{id}', function ($id) {
     $taskModel = new \App\Models\Task();
     $task = $taskModel->find($id);
-    
+
     if ($task) {
         sendResponse($task);
     } else {
@@ -84,7 +88,7 @@ $router->get('/tasks/{id}', function ($id) {
 $router->put('/tasks/{id}', function ($id) {
     $taskModel = new \App\Models\Task();
     $data = getRequestData();
-    
+
     if ($taskModel->update($id, $data)) {
         sendResponse(["message" => "Tarea actualizada"]);
     } else {
@@ -94,7 +98,7 @@ $router->put('/tasks/{id}', function ($id) {
 
 $router->delete('/tasks/{id}', function ($id) {
     $taskModel = new \App\Models\Task();
-    
+
     if ($taskModel->delete($id)) {
         sendResponse(["message" => "Tarea eliminada"]);
     } else {
@@ -111,7 +115,7 @@ $router->get('/expenses', function () {
 $router->post('/expenses', function () {
     $expenseModel = new \App\Models\Expense();
     $data = getRequestData();
-    
+
     if ($expenseModel->create($data)) {
         sendResponse(["message" => "Gasto registrado"], 201);
     } else {
@@ -122,7 +126,7 @@ $router->post('/expenses', function () {
 $router->get('/expenses/{id}', function ($id) {
     $expenseModel = new \App\Models\Expense();
     $expense = $expenseModel->find($id);
-    
+
     if ($expense) {
         sendResponse($expense);
     } else {
@@ -133,7 +137,7 @@ $router->get('/expenses/{id}', function ($id) {
 $router->put('/expenses/{id}', function ($id) {
     $expenseModel = new \App\Models\Expense();
     $data = getRequestData();
-    
+
     if ($expenseModel->update($id, $data)) {
         sendResponse(["message" => "Gasto actualizado"]);
     } else {
@@ -143,7 +147,7 @@ $router->put('/expenses/{id}', function ($id) {
 
 $router->delete('/expenses/{id}', function ($id) {
     $expenseModel = new \App\Models\Expense();
-    
+
     if ($expenseModel->delete($id)) {
         sendResponse(["message" => "Gasto eliminado"]);
     } else {
@@ -160,7 +164,7 @@ $router->get('/incomes', function () {
 $router->post('/incomes', function () {
     $incomeModel = new \App\Models\Income();
     $data = getRequestData();
-    
+
     if ($incomeModel->create($data)) {
         sendResponse(["message" => "Ingreso registrado"], 201);
     } else {
@@ -171,7 +175,7 @@ $router->post('/incomes', function () {
 $router->get('/incomes/{id}', function ($id) {
     $incomeModel = new \App\Models\Income();
     $income = $incomeModel->find($id);
-    
+
     if ($income) {
         sendResponse($income);
     } else {
@@ -182,7 +186,7 @@ $router->get('/incomes/{id}', function ($id) {
 $router->put('/incomes/{id}', function ($id) {
     $incomeModel = new \App\Models\Income();
     $data = getRequestData();
-    
+
     if ($incomeModel->update($id, $data)) {
         sendResponse(["message" => "Ingreso actualizado"]);
     } else {
@@ -192,13 +196,21 @@ $router->put('/incomes/{id}', function ($id) {
 
 $router->delete('/incomes/{id}', function ($id) {
     $incomeModel = new \App\Models\Income();
-    
+
     if ($incomeModel->delete($id)) {
         sendResponse(["message" => "Ingreso eliminado"]);
     } else {
         sendResponse(["error" => "No se pudo eliminar el ingreso"], 400, true);
     }
 });
+
+$currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if ($currentPath !== '/') {
+    $apiMiddleware = new ApiMiddleware();
+    if (!$apiMiddleware->handle()) {
+        exit;
+    }
+}
 
 try {
     $router->run();
