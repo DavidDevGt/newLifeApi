@@ -99,7 +99,10 @@ $router->get('/', function() use ($response) {
     $response->success(API_METADATA);
 });
 
-$router->options('/tasks', function() {
+// options route
+// This route is used to handle CORS preflight requests
+// It should always return a 200 OK status code
+$router->options('/(.*)', function() {
     http_response_code(200);
     exit();
 });

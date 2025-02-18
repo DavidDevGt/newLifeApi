@@ -82,6 +82,31 @@ class Router
     }
 
     /**
+     * Build a regex pattern for the given route.
+     *
+     * - Si la ruta contiene parámetros del estilo {id} se reemplazan por un grupo de captura.
+     * - Si la ruta contiene paréntesis, se asume que es un patrón regex definido por el usuario.
+     * - Si es una ruta estática, se escapan los caracteres especiales.
+     *
+     * @param string $route La definición de la ruta.
+     * @return string El patrón regex resultante.
+     */
+    private function buildPattern(string $route): string
+    {
+        // Si la ruta tiene parámetros {param}
+        if (strpos($route, '{') !== false) {
+            $pattern = preg_replace('/\{[^}]+\}/', '([^/]+)', $route);
+            return "@^" . $pattern . "$@";
+        }
+        // Si la ruta contiene paréntesis, asumimos que es un patrón regex proporcionado
+        if (strpos($route, '(') !== false) {
+            return "@^" . $route . "$@";
+        }
+        // Para rutas estáticas, escapamos los caracteres especiales
+        return "@^" . preg_quote($route, '@') . "$@";
+    }
+
+    /**
      * Executes the corresponding route based on the client request.
      * 
      * If the route exists, it executes the associated callback.
@@ -101,7 +126,7 @@ class Router
         }
 
         foreach ($this->routes[$requestedMethod] as $route => $callback) {
-            $pattern = "@^" . preg_replace('/\{[^}]+\}/', '([^/]+)', $route) . "$@";
+            $pattern = $this->buildPattern($route);
 
             if (preg_match($pattern, $requestedUri, $matches)) {
                 array_shift($matches);
