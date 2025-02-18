@@ -66,21 +66,37 @@ class Database
                 self::DB_USERNAME,
                 self::DB_PASSWORD
             ];
-            
+
             // Validate that all required environment variables are set
             foreach ($requiredEnvVars as $var) {
-                if (!array_key_exists($var, $_ENV)) {
-                    throw new Exception("The environment variable {$var} is missing.");
+                if (!isset($_ENV[$var])) {
+                    throw new Exception("Missing environment variable: {$var}");
                 }
-            }            
+            }
+
+            // Retrieve database config
+            $dbType = $_ENV[self::DB_CONNECTION] ?? 'mysql';
+            $dbHost = $_ENV[self::DB_HOST] ?? '127.0.0.1';
+            $dbPort = $_ENV[self::DB_PORT] ?? '3306';
+            $dbName = $_ENV[self::DB_DATABASE] ?? '';
+            $dbUser = $_ENV[self::DB_USERNAME] ?? '';
+            $dbPass = $_ENV[self::DB_PASSWORD] ?? '';
+
+            // Log database connection details (excluding credentials)
+            error_log("Connecting to DB: {$dbType}@{$dbHost}:{$dbPort}/{$dbName} as {$dbUser}");
+
+            // Allow empty password if user is "root"
+            if ($dbUser === 'root' && $dbPass === '') {
+                error_log("Allowing root user with empty password.");
+            }
 
             $config = [
-                'type'     => $_ENV[self::DB_CONNECTION] ?? 'mysql',
-                'host'     => $_ENV[self::DB_HOST]       ?? '127.0.0.1',
-                'port'     => $_ENV[self::DB_PORT]       ?? '3306',
-                'database' => $_ENV[self::DB_DATABASE]   ?? '',
-                'username' => $_ENV[self::DB_USERNAME]   ?? '',
-                'password' => $_ENV[self::DB_PASSWORD]   ?? '',
+                'type'     => $dbType,
+                'host'     => $dbHost,
+                'port'     => $dbPort,
+                'database' => $dbName,
+                'username' => $dbUser,
+                'password' => $dbPass,
                 'charset'  => 'utf8mb4',
                 'collation' => 'utf8mb4_unicode_ci',
                 'error'    => PDO::ERRMODE_EXCEPTION,
@@ -95,10 +111,10 @@ class Database
 
             return new Medoo($config);
         } catch (PDOException $e) {
-            error_log("Error connecting to the database: " . $e->getMessage());
+            error_log("Database Connection Error: " . $e->getMessage());
             throw new Exception(
                 "Could not establish a connection to the database. " .
-                "Please check your configuration."
+                "Please check your configuration. Error: " . $e->getMessage()
             );
         }
     }
