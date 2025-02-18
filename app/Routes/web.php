@@ -1,5 +1,4 @@
 <?php
-
 // declare types for strict mode in PHP
 declare(strict_types=1);
 
@@ -8,20 +7,28 @@ use App\Handlers\JsonHandler;
 use App\Exceptions\Handler;
 use App\Middleware\ApiMiddleware;
 
-/**
- * Response handler class to manage API responses
- */
 class ResponseHandler {
     /**
-     * Send a response
+     * Envía una respuesta formateada en JSON.
      *
-     * @param mixed $data The data to send in the response
-     * @param int $status The HTTP status code
-     * @param bool $error Whether the response indicates an error
+     * @param mixed $data Los datos a enviar en la respuesta.
+     * @param int $status El código HTTP de la respuesta.
+     * @param bool $error Indica si la respuesta representa un error.
+     * @return void
      */
     public function send($data, int $status = 200, bool $error = false): void 
     {
         date_default_timezone_set('America/Guatemala');
+
+        if ($error) {
+            if ($data instanceof \Throwable) {
+                $data = ['error' => $data->getMessage()];
+            } elseif (is_string($data)) {
+                $data = ['error' => $data];
+            } elseif (is_array($data) && !isset($data['error'])) {
+                $data = ['error' => $data];
+            }
+        }
 
         $response = [
             'status'    => $status,
@@ -37,22 +44,27 @@ class ResponseHandler {
     }
 
     /**
-     * Send an error response
+     * Envía una respuesta de error.
      *
-     * @param string $message The error message
-     * @param int $status The HTTP status code
+     * @param mixed $data El mensaje o la excepción de error.
+     * @param int $status El código HTTP de error.
+     * @return void
      */
-    public function error(string $message, int $status = 400): void 
+    public function error($data, int $status = 400): void 
     {
-        $this->send(['error' => $message], $status, true);
+        if ($data instanceof \Throwable) {
+            $data = $data->getMessage();
+        }
+        $this->send($data, $status, true);
     }
 
     /**
-     * Send a success response
+     * Envía una respuesta de éxito.
      *
-     * @param mixed $data The data to send in the response
-     * @param string $message An optional message
-     * @param int $status The HTTP status code
+     * @param mixed $data Los datos a enviar.
+     * @param string $message Un mensaje adicional (opcional).
+     * @param int $status El código HTTP de la respuesta.
+     * @return void
      */
     public function success($data, string $message = '', int $status = 200): void 
     {
@@ -64,20 +76,21 @@ class ResponseHandler {
     }
 }
 
-/**
- * Request handler class to manage incoming requests
- */
 class RequestHandler {
     /**
-     * Get JSON data from the request body
+     * Obtiene y decodifica los datos JSON del cuerpo de la petición.
      *
-     * @return array The decoded JSON data
+     * @return array Los datos decodificados o un array vacío en caso de error.
      */
     public function getJsonData(): array 
     {
-        // Normalize input data
         $jsonData = file_get_contents("php://input");
-        return json_decode($jsonData, true) ?? [];
+        $data = json_decode($jsonData, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            // Opcional: puedes registrar el error de json_decode() aquí
+            return [];
+        }
+        return $data ?? [];
     }
 }
 
@@ -85,6 +98,7 @@ $response = new ResponseHandler();
 $request = new RequestHandler();
 $router = new Router();
 
+// Metadata de la API
 const API_METADATA = [
     'name' => 'API David',
     'version' => '1.0.0',
@@ -99,15 +113,13 @@ $router->get('/', function() use ($response) {
     $response->success(API_METADATA);
 });
 
-// options route
-// This route is used to handle CORS preflight requests
-// It should always return a 200 OK status code
+// Ruta OPTIONS global para manejo de CORS
 $router->options('/(.*)', function() {
     http_response_code(200);
     exit();
 });
 
-// Tasks Routes
+// Rutas para Tasks
 $router->get('/tasks', function() use ($response) {
     $taskModel = new \App\Models\Task();
     $response->success($taskModel->all());
@@ -126,7 +138,7 @@ $router->post('/tasks', function() use ($response, $request) {
 
 $router->get('/tasks/{id}', function($id) use ($response) {
     $taskModel = new \App\Models\Task();
-    $task = $taskModel->find($id);
+    $task = $taskModel->find((int)$id);
 
     if ($task) {
         $response->success($task);
@@ -139,7 +151,7 @@ $router->put('/tasks/{id}', function($id) use ($response, $request) {
     $taskModel = new \App\Models\Task();
     $data = $request->getJsonData();
 
-    if ($taskModel->update($id, $data)) {
+    if ($taskModel->update((int)$id, $data)) {
         $response->success(null, "Tarea actualizada");
     } else {
         $response->error("No se pudo actualizar la tarea");
@@ -149,14 +161,14 @@ $router->put('/tasks/{id}', function($id) use ($response, $request) {
 $router->delete('/tasks/{id}', function($id) use ($response) {
     $taskModel = new \App\Models\Task();
 
-    if ($taskModel->delete($id)) {
+    if ($taskModel->delete((int)$id)) {
         $response->success(null, "Tarea eliminada");
     } else {
         $response->error("No se pudo eliminar la tarea");
     }
 });
 
-// Expenses Routes
+// Rutas para Expenses
 $router->get('/expenses', function() use ($response) {
     $expenseModel = new \App\Models\Expense();
     $response->success($expenseModel->all());
@@ -175,7 +187,7 @@ $router->post('/expenses', function() use ($response, $request) {
 
 $router->get('/expenses/{id}', function($id) use ($response) {
     $expenseModel = new \App\Models\Expense();
-    $expense = $expenseModel->find($id);
+    $expense = $expenseModel->find((int)$id);
 
     if ($expense) {
         $response->success($expense);
@@ -188,7 +200,7 @@ $router->put('/expenses/{id}', function($id) use ($response, $request) {
     $expenseModel = new \App\Models\Expense();
     $data = $request->getJsonData();
 
-    if ($expenseModel->update($id, $data)) {
+    if ($expenseModel->update((int)$id, $data)) {
         $response->success(null, "Gasto actualizado");
     } else {
         $response->error("No se pudo actualizar el gasto");
@@ -198,14 +210,14 @@ $router->put('/expenses/{id}', function($id) use ($response, $request) {
 $router->delete('/expenses/{id}', function($id) use ($response) {
     $expenseModel = new \App\Models\Expense();
 
-    if ($expenseModel->delete($id)) {
+    if ($expenseModel->delete((int)$id)) {
         $response->success(null, "Gasto eliminado");
     } else {
         $response->error("No se pudo eliminar el gasto");
     }
 });
 
-// Incomes Routes
+// Rutas para Incomes
 $router->get('/incomes', function() use ($response) {
     $incomeModel = new \App\Models\Income();
     $response->success($incomeModel->all());
@@ -224,7 +236,7 @@ $router->post('/incomes', function() use ($response, $request) {
 
 $router->get('/incomes/{id}', function($id) use ($response) {
     $incomeModel = new \App\Models\Income();
-    $income = $incomeModel->find($id);
+    $income = $incomeModel->find((int)$id);
 
     if ($income) {
         $response->success($income);
@@ -237,7 +249,7 @@ $router->put('/incomes/{id}', function($id) use ($response, $request) {
     $incomeModel = new \App\Models\Income();
     $data = $request->getJsonData();
 
-    if ($incomeModel->update($id, $data)) {
+    if ($incomeModel->update((int)$id, $data)) {
         $response->success(null, "Ingreso actualizado");
     } else {
         $response->error("No se pudo actualizar el ingreso");
@@ -247,7 +259,7 @@ $router->put('/incomes/{id}', function($id) use ($response, $request) {
 $router->delete('/incomes/{id}', function($id) use ($response) {
     $incomeModel = new \App\Models\Income();
 
-    if ($incomeModel->delete($id)) {
+    if ($incomeModel->delete((int)$id)) {
         $response->success(null, "Ingreso eliminado");
     } else {
         $response->error("No se pudo eliminar el ingreso");
@@ -266,5 +278,5 @@ try {
     $router->run();
 } catch (Throwable $exception) {
     $handler = new Handler();
-    $response->error($exception->getMessage(), 500);
+    $response->error($exception, 500);
 }
