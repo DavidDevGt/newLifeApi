@@ -99,6 +99,11 @@ $router->get('/', function() use ($response) {
     $response->success(API_METADATA);
 });
 
+$router->options('/tasks', function() {
+    http_response_code(200);
+    exit();
+});
+
 // Tasks Routes
 $router->get('/tasks', function() use ($response) {
     $taskModel = new \App\Models\Task();

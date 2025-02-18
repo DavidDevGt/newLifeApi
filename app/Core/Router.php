@@ -70,6 +70,18 @@ class Router
     }
 
     /**
+     * Registers an OPTIONS route.
+     *
+     * @param string $uri The URI of the route.
+     * @param callable $callback The function to execute when the route is accessed.
+     * @return void
+     */
+    public function options(string $uri, callable $callback): void
+    {
+        $this->routes['OPTIONS'][$uri] = $callback;
+    }
+
+    /**
      * Executes the corresponding route based on the client request.
      * 
      * If the route exists, it executes the associated callback.
