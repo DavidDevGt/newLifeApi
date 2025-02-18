@@ -66,7 +66,8 @@ class Database
                 self::DB_USERNAME,
                 self::DB_PASSWORD
             ];
-            
+           
+            // TESTING GITHUB WEBHOOK
             // Validate that all required environment variables are set
             // foreach ($requiredEnvVars as $var) {
             //     if (!array_key_exists($var, $_ENV)) {
