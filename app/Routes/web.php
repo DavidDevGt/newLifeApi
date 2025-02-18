@@ -11,6 +11,13 @@ use App\Middleware\ApiMiddleware;
  * Response handler class to manage API responses
  */
 class ResponseHandler {
+    /**
+     * Send a response
+     *
+     * @param mixed $data The data to send in the response
+     * @param int $status The HTTP status code
+     * @param bool $error Whether the response indicates an error
+     */
     public function send($data, int $status = 200, bool $error = false): void 
     {
         date_default_timezone_set('America/Guatemala');
@@ -28,11 +35,24 @@ class ResponseHandler {
         JsonHandler::send($response, $status);
     }
 
+    /**
+     * Send an error response
+     *
+     * @param string $message The error message
+     * @param int $status The HTTP status code
+     */
     public function error(string $message, int $status = 400): void 
     {
         $this->send(['error' => $message], $status, true);
     }
 
+    /**
+     * Send a success response
+     *
+     * @param mixed $data The data to send in the response
+     * @param string $message An optional message
+     * @param int $status The HTTP status code
+     */
     public function success($data, string $message = '', int $status = 200): void 
     {
         $responseData = is_array($data) ? $data : ['data' => $data];
@@ -47,6 +67,11 @@ class ResponseHandler {
  * Request handler class to manage incoming requests
  */
 class RequestHandler {
+    /**
+     * Get JSON data from the request body
+     *
+     * @return array The decoded JSON data
+     */
     public function getJsonData(): array 
     {
         // Normalize input data
