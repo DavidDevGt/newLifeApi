@@ -33,6 +33,10 @@ class ApiMiddleware
 
     public function handle(): bool
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            return true;
+        }
+
         $headers = getallheaders();
         $apiKey = $headers[self::HEADER_NAME] ?? null;
 
