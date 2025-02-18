@@ -1,48 +1,65 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Core\Router;
 use App\Handlers\JsonHandler;
 use App\Exceptions\Handler;
 use App\Middleware\ApiMiddleware;
 
 /**
- * Envía la respuesta en formato JSON con información adicional
- *
- * @param mixed $data    Datos a enviar
- * @param int   $status  Código de estado HTTP
- * @param bool  $error   Indica si es una respuesta de error
+ * Response handler class to manage API responses
  */
-function sendResponse($data, $status = 200, $error = false)
-{
-    date_default_timezone_set('America/Guatemala'); // TODO: implementar esto dinámicamente para varios países
+class ResponseHandler {
+    public function send($data, int $status = 200, bool $error = false): void 
+    {
+        date_default_timezone_set('America/Guatemala');
 
-    $response = [
-        'status'    => $status,
-        'timestamp' => date('c'),
-        'data'      => $data
-    ];
+        $response = [
+            'status'    => $status,
+            'timestamp' => date('c'),
+            'data'      => $data
+        ];
 
-    if ($error) {
-        $response['error'] = true;
+        if ($error) {
+            $response['error'] = true;
+        }
+
+        JsonHandler::send($response, $status);
     }
 
-    JsonHandler::send($response, $status);
+    public function error(string $message, int $status = 400): void 
+    {
+        $this->send(['error' => $message], $status, true);
+    }
+
+    public function success($data, string $message = '', int $status = 200): void 
+    {
+        $responseData = is_array($data) ? $data : ['data' => $data];
+        if ($message) {
+            $responseData['message'] = $message;
+        }
+        $this->send($responseData, $status);
+    }
 }
 
 /**
- * Obtiene y decodifica los datos JSON del request
- *
- * @return array
+ * Request handler class to manage incoming requests
  */
-function getRequestData()
-{
-    $jsonData = file_get_contents("php://input");
-    return json_decode($jsonData, true) ?? [];
+class RequestHandler {
+    public function getJsonData(): array 
+    {
+        // Normalize input data
+        $jsonData = file_get_contents("php://input");
+        return json_decode($jsonData, true) ?? [];
+    }
 }
 
+$response = new ResponseHandler();
+$request = new RequestHandler();
 $router = new Router();
 
-$apiMetadata = [
+const API_METADATA = [
     'name' => 'API David',
     'version' => '1.0.0',
     'endpoints' => [
@@ -52,155 +69,154 @@ $apiMetadata = [
     ]
 ];
 
-// Ruta de metadata (podrías excluirla del chequeo de API key si lo deseas)
-$router->get('/', function () use ($apiMetadata) {
-    sendResponse($apiMetadata);
+$router->get('/', function() use ($response) {
+    $response->success(API_METADATA);
 });
 
-// Rutas de Tasks
-$router->get('/tasks', function () {
+// Tasks Routes
+$router->get('/tasks', function() use ($response) {
     $taskModel = new \App\Models\Task();
-    sendResponse($taskModel->all());
+    $response->success($taskModel->all());
 });
 
-$router->post('/tasks', function () {
+$router->post('/tasks', function() use ($response, $request) {
     $taskModel = new \App\Models\Task();
-    $data = getRequestData();
+    $data = $request->getJsonData();
 
     if ($taskModel->create($data)) {
-        sendResponse(["message" => "Tarea creada"], 201);
+        $response->success(null, "Tarea creada", 201);
     } else {
-        sendResponse(["error" => "No se pudo crear la tarea"], 400, true);
+        $response->error("No se pudo crear la tarea");
     }
 });
 
-$router->get('/tasks/{id}', function ($id) {
+$router->get('/tasks/{id}', function($id) use ($response) {
     $taskModel = new \App\Models\Task();
     $task = $taskModel->find($id);
 
     if ($task) {
-        sendResponse($task);
+        $response->success($task);
     } else {
-        sendResponse(["error" => "Tarea no encontrada"], 404, true);
+        $response->error("Tarea no encontrada", 404);
     }
 });
 
-$router->put('/tasks/{id}', function ($id) {
+$router->put('/tasks/{id}', function($id) use ($response, $request) {
     $taskModel = new \App\Models\Task();
-    $data = getRequestData();
+    $data = $request->getJsonData();
 
     if ($taskModel->update($id, $data)) {
-        sendResponse(["message" => "Tarea actualizada"]);
+        $response->success(null, "Tarea actualizada");
     } else {
-        sendResponse(["error" => "No se pudo actualizar la tarea"], 400, true);
+        $response->error("No se pudo actualizar la tarea");
     }
 });
 
-$router->delete('/tasks/{id}', function ($id) {
+$router->delete('/tasks/{id}', function($id) use ($response) {
     $taskModel = new \App\Models\Task();
 
     if ($taskModel->delete($id)) {
-        sendResponse(["message" => "Tarea eliminada"]);
+        $response->success(null, "Tarea eliminada");
     } else {
-        sendResponse(["error" => "No se pudo eliminar la tarea"], 400, true);
+        $response->error("No se pudo eliminar la tarea");
     }
 });
 
-// Rutas de Expenses
-$router->get('/expenses', function () {
+// Expenses Routes
+$router->get('/expenses', function() use ($response) {
     $expenseModel = new \App\Models\Expense();
-    sendResponse($expenseModel->all());
+    $response->success($expenseModel->all());
 });
 
-$router->post('/expenses', function () {
+$router->post('/expenses', function() use ($response, $request) {
     $expenseModel = new \App\Models\Expense();
-    $data = getRequestData();
+    $data = $request->getJsonData();
 
     if ($expenseModel->create($data)) {
-        sendResponse(["message" => "Gasto registrado"], 201);
+        $response->success(null, "Gasto registrado", 201);
     } else {
-        sendResponse(["error" => "No se pudo registrar el gasto"], 400, true);
+        $response->error("No se pudo registrar el gasto");
     }
 });
 
-$router->get('/expenses/{id}', function ($id) {
+$router->get('/expenses/{id}', function($id) use ($response) {
     $expenseModel = new \App\Models\Expense();
     $expense = $expenseModel->find($id);
 
     if ($expense) {
-        sendResponse($expense);
+        $response->success($expense);
     } else {
-        sendResponse(["error" => "Gasto no encontrado"], 404, true);
+        $response->error("Gasto no encontrado", 404);
     }
 });
 
-$router->put('/expenses/{id}', function ($id) {
+$router->put('/expenses/{id}', function($id) use ($response, $request) {
     $expenseModel = new \App\Models\Expense();
-    $data = getRequestData();
+    $data = $request->getJsonData();
 
     if ($expenseModel->update($id, $data)) {
-        sendResponse(["message" => "Gasto actualizado"]);
+        $response->success(null, "Gasto actualizado");
     } else {
-        sendResponse(["error" => "No se pudo actualizar el gasto"], 400, true);
+        $response->error("No se pudo actualizar el gasto");
     }
 });
 
-$router->delete('/expenses/{id}', function ($id) {
+$router->delete('/expenses/{id}', function($id) use ($response) {
     $expenseModel = new \App\Models\Expense();
 
     if ($expenseModel->delete($id)) {
-        sendResponse(["message" => "Gasto eliminado"]);
+        $response->success(null, "Gasto eliminado");
     } else {
-        sendResponse(["error" => "No se pudo eliminar el gasto"], 400, true);
+        $response->error("No se pudo eliminar el gasto");
     }
 });
 
-// Rutas de Incomes
-$router->get('/incomes', function () {
+// Incomes Routes
+$router->get('/incomes', function() use ($response) {
     $incomeModel = new \App\Models\Income();
-    sendResponse($incomeModel->all());
+    $response->success($incomeModel->all());
 });
 
-$router->post('/incomes', function () {
+$router->post('/incomes', function() use ($response, $request) {
     $incomeModel = new \App\Models\Income();
-    $data = getRequestData();
+    $data = $request->getJsonData();
 
     if ($incomeModel->create($data)) {
-        sendResponse(["message" => "Ingreso registrado"], 201);
+        $response->success(null, "Ingreso registrado", 201);
     } else {
-        sendResponse(["error" => "No se pudo registrar el ingreso"], 400, true);
+        $response->error("No se pudo registrar el ingreso");
     }
 });
 
-$router->get('/incomes/{id}', function ($id) {
+$router->get('/incomes/{id}', function($id) use ($response) {
     $incomeModel = new \App\Models\Income();
     $income = $incomeModel->find($id);
 
     if ($income) {
-        sendResponse($income);
+        $response->success($income);
     } else {
-        sendResponse(["error" => "Ingreso no encontrado"], 404, true);
+        $response->error("Ingreso no encontrado", 404);
     }
 });
 
-$router->put('/incomes/{id}', function ($id) {
+$router->put('/incomes/{id}', function($id) use ($response, $request) {
     $incomeModel = new \App\Models\Income();
-    $data = getRequestData();
+    $data = $request->getJsonData();
 
     if ($incomeModel->update($id, $data)) {
-        sendResponse(["message" => "Ingreso actualizado"]);
+        $response->success(null, "Ingreso actualizado");
     } else {
-        sendResponse(["error" => "No se pudo actualizar el ingreso"], 400, true);
+        $response->error("No se pudo actualizar el ingreso");
     }
 });
 
-$router->delete('/incomes/{id}', function ($id) {
+$router->delete('/incomes/{id}', function($id) use ($response) {
     $incomeModel = new \App\Models\Income();
 
     if ($incomeModel->delete($id)) {
-        sendResponse(["message" => "Ingreso eliminado"]);
+        $response->success(null, "Ingreso eliminado");
     } else {
-        sendResponse(["error" => "No se pudo eliminar el ingreso"], 400, true);
+        $response->error("No se pudo eliminar el ingreso");
     }
 });
 
@@ -214,8 +230,7 @@ if ($currentPath !== '/') {
 
 try {
     $router->run();
-} catch (\Throwable $exception) {
-    $errorHandler = new Handler();
-    // Internal Server Error (500) por defecto
-    echo $errorHandler->showError(500, $exception->getMessage());
+} catch (Throwable $exception) {
+    $handler = new Handler();
+    $response->error($exception->getMessage(), 500);
 }
