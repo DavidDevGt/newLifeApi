@@ -1,5 +1,6 @@
 <?php
 
+// declare types for strict mode in PHP
 declare(strict_types=1);
 
 use App\Core\Router;
